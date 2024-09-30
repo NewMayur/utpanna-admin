@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:poshinda_admin/services/auth_service.dart';
-import 'package:poshinda_admin/screens/admin_panel.dart';
+import 'package:utpanna_admin/services/auth_service.dart';
+import 'package:utpanna_admin/screens/admin_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import '../utils/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:5000/login'),
+        Uri.parse('${Constants.apiUrl}/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password}),
       );

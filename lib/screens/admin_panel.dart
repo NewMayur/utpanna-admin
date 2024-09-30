@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:poshinda_admin/services/auth_service.dart';
-import 'package:poshinda_admin/screens/login_screen.dart';
+import 'package:utpanna_admin/services/auth_service.dart';
+import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/constants.dart';
 
 class AdminPanel extends StatefulWidget {
   final String token;
@@ -88,7 +89,7 @@ class _AdminPanelState extends State<AdminPanel> {
   Future<void> fetchDeals() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/deals'),
+        Uri.parse('${Constants.apiUrl}/deals'),
         headers: {
           'Authorization': 'Bearer $_accessToken',
         },
@@ -110,7 +111,7 @@ class _AdminPanelState extends State<AdminPanel> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Poshinda Admin Panel'),
+        title: const Text('utpanna Admin Panel'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -175,7 +176,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:5000/deals'),
+          Uri.parse('${Constants.apiUrl}/deals'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $_accessToken',
@@ -204,7 +205,7 @@ class _AdminPanelState extends State<AdminPanel> {
   Future<void> _deleteDeal(String id) async {
     try {
       final response = await http.delete(
-        Uri.parse('http://localhost:5000/deals/$id'),
+        Uri.parse('${Constants.apiUrl}/deals/$id'),
         headers: {
           'Authorization': 'Bearer $_accessToken',
         },

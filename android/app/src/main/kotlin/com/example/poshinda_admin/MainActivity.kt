@@ -1,4 +1,4 @@
-package com.example.poshinda_admin
+package com.example.utpanna_admin
 
 import io.flutter.embedding.android.FlutterActivity
 

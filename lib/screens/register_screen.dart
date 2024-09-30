@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:poshinda_admin/services/auth_service.dart';
+import 'package:utpanna_admin/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
