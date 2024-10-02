@@ -75489,7 +75489,7 @@ var $async$nI=A.L(function(a,b){if(a===1){p=b
 s=q}while(true)switch(s){case 0:f=o.e.a.a
 e=o.f.a.a
 q=3
-j=A.dZ("https://utpanna-backend-340480522275.us-central1.run.app/login")
+j=A.dZ("https://utpanna-backend-340480522275.us-central1.run.app/auth/login")
 i=t.N
 h=A.al(["Content-Type","application/json"],i,i)
 s=6
@@ -75596,7 +75596,7 @@ A.DL.prototype={
 mX(a,b){return this.ahb(a,b)},
 ahb(a,b){var s=0,r=A.K(t.H),q,p,o
 var $async$mX=A.L(function(c,d){if(c===1)return A.H(d,r)
-while(true)switch(s){case 0:q=A.dZ("https://utpanna-backend-340480522275.us-central1.run.app/register")
+while(true)switch(s){case 0:q=A.dZ("https://utpanna-backend-340480522275.us-central1.run.app/auth/register")
 p=t.N
 o=A.al(["Content-Type","application/json"],p,p)
 s=2

@@ -89,7 +89,7 @@ class _AdminPanelState extends State<AdminPanel> {
   Future<void> fetchDeals() async {
     try {
       final response = await http.get(
-        Uri.parse('${Constants.apiUrl}/deals'),
+        Uri.parse('${Constants.apiUrl}/deal-list'),
         headers: {
           'Authorization': 'Bearer $_accessToken',
         },
