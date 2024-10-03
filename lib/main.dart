@@ -6,8 +6,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: FirebaseOptions(
-      apiKey: "not found",
-      authDomain: "utpanna-dev-admin.firebaseapp.com",
+      apiKey: "AIzaSyDiVSLs3goLrzmndUyLa9Sjp0gs4ovHHhA",
+      authDomain: "utpanna-dev.firebaseapp.com",
       projectId: "utpanna-dev",
       storageBucket: "utpanna-dev.appspot.com",
       messagingSenderId: "340480522275",

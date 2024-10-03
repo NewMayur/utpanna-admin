@@ -16,5 +16,5 @@ class Constants {
 
   // Other constants can be added here
   static const int timeoutDuration = 30; // in seconds
-  static const String appName = 'utpanna';
+  static const String appName = 'Utpanna Admin Panel';
 }

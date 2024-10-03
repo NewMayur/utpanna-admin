@@ -14,7 +14,7 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="/">
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -34,19 +34,5 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <script>
-    var firebaseConfig = {
-      apiKey: "not found",
-      authDomain: "utpanna-dev.firebaseapp.com",
-      projectId: "utpanna-dev",
-      storageBucket: "utpanna-dev.appspot.com",
-      messagingSenderId: "340480522275",
-      appId: "1:340480522275:web:31b799d4bd82e6398ad996"
-    };
-    firebase.initializeApp(firebaseConfig);
-  </script>
 </body>
 </html>
