@@ -14,12 +14,14 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLogin = true;
 
   Future<void> _login() async {
     final username = _usernameController.text;
+    final email = _emailController.text;
     final password = _passwordController.text;
 
     try {
@@ -63,6 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           await _authService.register(
             _usernameController.text,
+            _emailController.text,
             _passwordController.text,
           );
           setState(() => _isLogin = true);
@@ -97,6 +100,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   }
                   return null;
                 },
+              ),
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Email'),
+                // validator: (value) {
+                //   if (value == null || value.isEmpty) {
+                //     return 'Please enter an email';
+                //   }
+                //   return null;
+                // },
               ),
               TextFormField(
                 controller: _passwordController,

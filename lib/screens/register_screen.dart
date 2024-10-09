@@ -9,6 +9,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
@@ -17,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       try {
         await _authService.register(
           _usernameController.text,
+          _emailController.text,
           _passwordController.text,
         );
         showToast(context, 'Registration successful');
@@ -44,6 +46,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a username';
                   }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _emailController, // New email field
+                decoration: InputDecoration(labelText: 'Email'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an email';
+                  }
+                  // You might want to add email format validation here
                   return null;
                 },
               ),

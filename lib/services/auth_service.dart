@@ -24,17 +24,21 @@ class AuthService {
     }
   }
 
-  Future<void> register(String username, String password) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'username': username, 'password': password}),
-    );
+  Future<void> register(String username, String email, String password) async {
+  final response = await http.post(
+    Uri.parse('$_baseUrl/auth/register'),
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({
+      'username': username,
+      'email': email,
+      'password': password
+    }),
+  );
 
-    if (response.statusCode != 201) {
-      throw Exception('Failed to register');
-    }
+  if (response.statusCode != 201) {
+    throw Exception('Failed to register');
   }
+}
 
   Future<void> logout() async {
     await _deleteToken();
