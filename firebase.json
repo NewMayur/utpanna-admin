@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "utpanna-admin-stag",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
