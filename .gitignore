@@ -31,6 +31,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/public/
 
 # Symbolication related
 app.*.symbols
@@ -45,4 +46,3 @@ app.*.map.json
 
 # Firebase files
 .firebase/
-/public/
