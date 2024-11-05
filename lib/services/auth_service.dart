@@ -9,7 +9,7 @@ class AuthService {
 
   Future<String> login(String username, String password) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/auth/login'),
+      Uri.parse('$_baseUrl/auth/admin/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'username': username, 'password': password}),
     );
@@ -26,7 +26,7 @@ class AuthService {
 
   Future<void> register(String username, String email, String password) async {
   final response = await http.post(
-    Uri.parse('$_baseUrl/auth/register'),
+    Uri.parse('$_baseUrl/auth/admin/register'),
     headers: {'Content-Type': 'application/json'},
     body: json.encode({
       'username': username,

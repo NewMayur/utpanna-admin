@@ -5,6 +5,7 @@ import 'package:utpanna_admin/services/auth_service.dart';
 import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import 'package:utpanna_admin/screens/deal_detail_screen.dart';
 
 class AdminPanel extends StatefulWidget {
   final String token;
@@ -23,6 +24,10 @@ class Deal {
   final int min_participants;
   final int current_participants;
   final String status;
+  final String created_at;
+  final String updated_at;
+  final List<Participant>? participants;
+  final double? progress_percentage;
 
   Deal({
     required this.id,
@@ -32,6 +37,10 @@ class Deal {
     required this.min_participants,
     this.current_participants = 0,
     this.status = 'open',
+    required this.created_at,
+    required this.updated_at,
+    this.participants,
+    this.progress_percentage,
   });
 
   Map<String, dynamic> toJson() {
@@ -55,6 +64,40 @@ class Deal {
       min_participants: json['min_participants'],
       current_participants: json['current_participants'] ?? 0,
       status: json['status'] ?? 'open',
+      created_at: json['created_at'],
+      updated_at: json['updated_at'],
+      participants: json['participants'] != null 
+          ? (json['participants'] as List)
+              .map((p) => Participant.fromJson(p))
+              .toList()
+          : null,
+      progress_percentage: json['progress_percentage']?.toDouble(),
+    );
+  }
+}
+
+class Participant {
+  final int id;
+  final String name;
+  final String phone_number;
+  final String address;
+  final String joined_at;
+
+  Participant({
+    required this.id,
+    required this.name,
+    required this.phone_number,
+    required this.address,
+    required this.joined_at,
+  });
+
+  factory Participant.fromJson(Map<String, dynamic> json) {
+    return Participant(
+      id: json['id'],
+      name: json['name'],
+      phone_number: json['phone_number'],
+      address: json['address'],
+      joined_at: json['joined_at'],
     );
   }
 }
@@ -111,7 +154,7 @@ class _AdminPanelState extends State<AdminPanel> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('utpanna Admin Panel'),
+        title: const Text('Utpanna Admin Panel'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -166,12 +209,17 @@ class _AdminPanelState extends State<AdminPanel> {
 
   Future<void> _createDeal() async {
     if (_dealFormKey.currentState!.validate()) {
+      final now = DateTime.now().toIso8601String();
       final deal = Deal(
         id: 0, // The server will assign the actual ID
         title: _titleController.text,
         description: _descriptionController.text,
         price: double.parse(_priceController.text),
         min_participants: int.parse(_minParticipantsController.text),
+        current_participants: 0,  // Add this
+        status: 'open', // Add this
+        created_at: now,
+        updated_at: now,
       );
 
       try {
@@ -244,7 +292,12 @@ class DealList extends StatelessWidget {
   final Function(Deal) onSelect;
   final Function(String) onDelete;
 
-  const DealList({Key? key, required this.deals, required this.onSelect, required this.onDelete}) : super(key: key);
+  const DealList({
+    Key? key, 
+    required this.deals, 
+    required this.onSelect, 
+    required this.onDelete
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -252,13 +305,29 @@ class DealList extends StatelessWidget {
       itemCount: deals.length,
       itemBuilder: (context, index) {
         final deal = deals[index];
-        return ListTile(
-          title: Text(deal.title),
-          subtitle: Text('₹${deal.price.toStringAsFixed(2)}'),
-          onTap: () => onSelect(deal),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => onDelete(deal.id.toString()),
+        return Card(
+          child: ListTile(
+            title: Text(deal.title),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Price: ₹${deal.price}'),
+                Text('Participants: ${deal.current_participants}/${deal.min_participants}'),
+                Text('Status: ${deal.status}'),
+              ],
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DealDetailScreen(deal: deal),
+                ),
+              );
+            },
+            trailing: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => onDelete(deal.id.toString()),
+            ),
           ),
         );
       },
