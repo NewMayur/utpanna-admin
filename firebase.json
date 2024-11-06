@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "utpanna-admin-stag",
+    "site": "utpanna-dev-admin",
     "public": "public",
     "ignore": [
       "firebase.json",

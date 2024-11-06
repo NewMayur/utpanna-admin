@@ -46,12 +46,17 @@ class AuthService {
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    final token = prefs.getString(_tokenKey);
+    if (token != null) {
+      Constants.updateJwtToken(token); // Update Constants when token is retrieved
+    }
+    return token;
   }
 
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
+    Constants.updateJwtToken(token);
   }
 
   Future<void> _deleteToken() async {

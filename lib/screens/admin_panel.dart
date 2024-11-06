@@ -110,23 +110,13 @@ class _AdminPanelState extends State<AdminPanel> {
   final _priceController = TextEditingController();
   final _minParticipantsController = TextEditingController();
   final _authService = AuthService();
-  late String _accessToken;
 
   @override
   void initState() {
     super.initState();
+    // Store token in Constants
+    Constants.updateJwtToken(widget.token);
     fetchDeals();
-    _parseToken();
-  }
-
-  void _parseToken() {
-    try {
-      final tokenData = json.decode(widget.token);
-      _accessToken = tokenData['access_token'];
-    } catch (e) {
-      // If parsing fails, assume the token is already in the correct format
-      _accessToken = widget.token;
-    }
   }
 
   Future<void> fetchDeals() async {
@@ -134,77 +124,27 @@ class _AdminPanelState extends State<AdminPanel> {
       final response = await http.get(
         Uri.parse('${Constants.apiUrl}/deal-list'),
         headers: {
-          'Authorization': 'Bearer $_accessToken',
+          'Authorization': 'Bearer ${Constants.jwtToken}',
+          'Content-Type': 'application/json',
         },
       );
+      
       if (response.statusCode == 200) {
         final List<dynamic> dealsJson = json.decode(response.body);
         setState(() {
           deals = dealsJson.map((json) => Deal.fromJson(json)).toList();
         });
       } else {
+        print('Failed to fetch deals: ${response.statusCode}');
+        print('Response body: ${response.body}');
         showToast(context, 'Failed to fetch deals: ${response.statusCode}');
       }
     } catch (e) {
-      showToast(context, 'Error fetching deals: $e');
+      print('Error fetching deals: $e');
+      if (mounted) {
+        showToast(context, 'Error fetching deals: $e');
+      }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Utpanna Admin Panel'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: DealList(
-              deals: deals,
-              onSelect: (deal) {
-                setState(() {
-                  _titleController.text = deal.title;
-                  _descriptionController.text = deal.description;
-                  _priceController.text = deal.price.toString();
-                  _minParticipantsController.text = deal.min_participants.toString();
-                });
-              },
-              onDelete: _deleteDeal,
-            ), 
-          ),
-          Expanded(
-            flex: 2,
-            child: DealForm(
-              formKey: _dealFormKey,
-              titleController: _titleController,
-              descriptionController: _descriptionController,
-              priceController: _priceController,
-              minParticipantsController: _minParticipantsController,
-              onSave: _createDeal,
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            _dealFormKey.currentState?.reset();
-            _titleController.clear();
-            _descriptionController.clear();
-            _priceController.clear();
-            _minParticipantsController.clear();
-          });
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
   }
 
   Future<void> _createDeal() async {
@@ -216,8 +156,8 @@ class _AdminPanelState extends State<AdminPanel> {
         description: _descriptionController.text,
         price: double.parse(_priceController.text),
         min_participants: int.parse(_minParticipantsController.text),
-        current_participants: 0,  // Add this
-        status: 'open', // Add this
+        current_participants: 0,
+        status: 'open',
         created_at: now,
         updated_at: now,
       );
@@ -227,7 +167,7 @@ class _AdminPanelState extends State<AdminPanel> {
           Uri.parse('${Constants.apiUrl}/deals'),
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer $_accessToken',
+            'Authorization': 'Bearer ${Constants.jwtToken}',
           },
           body: json.encode(deal.toJson()),
         );
@@ -255,7 +195,7 @@ class _AdminPanelState extends State<AdminPanel> {
       final response = await http.delete(
         Uri.parse('${Constants.apiUrl}/deals/$id'),
         headers: {
-          'Authorization': 'Bearer $_accessToken',
+          'Authorization': 'Bearer ${Constants.jwtToken}',
         },
       );
       if (response.statusCode == 200) {
@@ -278,6 +218,7 @@ class _AdminPanelState extends State<AdminPanel> {
   void _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    Constants.updateJwtToken(''); // Clear token from Constants
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => LoginScreen()),
     );
@@ -285,53 +226,105 @@ class _AdminPanelState extends State<AdminPanel> {
       SnackBar(content: Text('Logged out successfully')),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Utpanna Admin Panel'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: DealList(
+            deals: deals,
+            onDelete: _deleteDeal,
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Create New Deal'),
+              content: DealForm(
+                formKey: _dealFormKey,
+                titleController: _titleController,
+                descriptionController: _descriptionController,
+                priceController: _priceController,
+                minParticipantsController: _minParticipantsController,
+                onSave: () {
+                  _createDeal();
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 }
 
 class DealList extends StatelessWidget {
   final List<Deal> deals;
-  final Function(Deal) onSelect;
   final Function(String) onDelete;
 
   const DealList({
     Key? key, 
-    required this.deals, 
-    required this.onSelect, 
-    required this.onDelete
+    required this.deals,
+    required this.onDelete,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: deals.length,
-      itemBuilder: (context, index) {
-        final deal = deals[index];
-        return Card(
-          child: ListTile(
-            title: Text(deal.title),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Price: ₹${deal.price}'),
-                Text('Participants: ${deal.current_participants}/${deal.min_participants}'),
-                Text('Status: ${deal.status}'),
+    return deals.isEmpty 
+      ? const Center(child: Text('No deals available'))
+      : SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Title')),
+              DataColumn(label: Text('Price')),
+              DataColumn(label: Text('Participants')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: deals.map((deal) => DataRow(
+              cells: [
+                DataCell(Text(deal.title)),
+                DataCell(Text('₹${deal.price}')),
+                DataCell(Text('${deal.current_participants}/${deal.min_participants}')),
+                DataCell(Text(deal.status)),
+                DataCell(Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => onDelete(deal.id.toString()),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.info),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DealDetailScreen(dealId: deal.id),
+                        ),
+                      ),
+                    ),
+                  ],
+                )),
               ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DealDetailScreen(deal: deal),
-                ),
-              );
-            },
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => onDelete(deal.id.toString()),
-            ),
+            )).toList(),
           ),
         );
-      },
-    );
   }
 }
 

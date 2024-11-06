@@ -20,37 +20,47 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
 
   Future<void> _login() async {
-    final username = _usernameController.text;
-    final email = _emailController.text;
-    final password = _passwordController.text;
-
     try {
       final response = await http.post(
         Uri.parse('${Constants.apiUrl}/auth/admin/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode({
+          'username': _usernameController.text,
+          'password': _passwordController.text
+        }),
       );
 
       if (response.statusCode == 200) {
-        final token = response.body; // Assuming the token is in the response body
-        // Save token using shared preferences
+        final responseData = json.decode(response.body);
+        
+        // Extract access_token from response
+        final String token = responseData['access_token'];
+        
+        // Save token to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
         
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => AdminPanel(token: token)),
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login successful')),
-        );
+        // Update Constants
+        Constants.updateJwtToken(token);
+        
+        // Navigate to AdminPanel
+        if (mounted) {  // Check if widget is still mounted
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => AdminPanel(token: token),
+            ),
+          );
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login successful')),
+          );
+        }
       } else {
-        // Handle login failure
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: ${response.statusCode}')),
         );
       }
     } catch (e) {
-      // Handle network or other errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error during login: $e')),
       );
