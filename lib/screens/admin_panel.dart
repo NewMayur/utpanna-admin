@@ -6,6 +6,30 @@ import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import 'package:utpanna_admin/screens/deal_detail_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:dio/dio.dart';
+
+class DealImage {
+  final int id;
+  final String imageUrl;
+  final String createdAt;
+
+  DealImage({
+    required this.id,
+    required this.imageUrl,
+    required this.createdAt,
+  });
+
+  factory DealImage.fromJson(Map<String, dynamic> json) {
+    return DealImage(
+      id: json['id'],
+      imageUrl: json['image_url'],
+      createdAt: json['created_at'],
+    );
+  }
+}
 
 class AdminPanel extends StatefulWidget {
   final String token;
@@ -28,6 +52,7 @@ class Deal {
   final String updated_at;
   final List<Participant>? participants;
   final double? progress_percentage;
+  final List<dynamic>? images;
 
   Deal({
     required this.id,
@@ -41,6 +66,7 @@ class Deal {
     required this.updated_at,
     this.participants,
     this.progress_percentage,
+    this.images,
   });
 
   Map<String, dynamic> toJson() {
@@ -72,6 +98,7 @@ class Deal {
               .toList()
           : null,
       progress_percentage: json['progress_percentage']?.toDouble(),
+      images: json['images'] as List<dynamic>?,
     );
   }
 }
@@ -254,16 +281,22 @@ class _AdminPanelState extends State<AdminPanel> {
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Create New Deal'),
-              content: DealForm(
-                formKey: _dealFormKey,
-                titleController: _titleController,
-                descriptionController: _descriptionController,
-                priceController: _priceController,
-                minParticipantsController: _minParticipantsController,
-                onSave: () {
-                  _createDeal();
-                  Navigator.pop(context);
-                },
+              content: SizedBox(
+                height: 400, // Adjust height as needed
+                width: 300,  // Adjust width as needed
+                child: SingleChildScrollView(
+                  child: DealForm(
+                    formKey: _dealFormKey,
+                    titleController: _titleController,
+                    descriptionController: _descriptionController,
+                    priceController: _priceController,
+                    minParticipantsController: _minParticipantsController,
+                    onSave: () {
+                      _createDeal();
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
               ),
             ),
           );
@@ -328,7 +361,7 @@ class DealList extends StatelessWidget {
   }
 }
 
-class DealForm extends StatelessWidget {
+class DealForm extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
@@ -347,14 +380,33 @@ class DealForm extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<DealForm> createState() => _DealFormState();
+}
+
+class _DealFormState extends State<DealForm> {
+  final List<XFile> _selectedImages = [];
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImages() async {
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      setState(() {
+        _selectedImages.clear();
+        _selectedImages.addAll(images.take(3)); // Limit to 3 images
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Form(
-      key: formKey,
+      key: widget.formKey,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           TextFormField(
-            controller: titleController,
-            decoration: InputDecoration(labelText: 'Title'),
+            controller: widget.titleController,
+            decoration: const InputDecoration(labelText: 'Title'),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a title';
@@ -363,8 +415,8 @@ class DealForm extends StatelessWidget {
             },
           ),
           TextFormField(
-            controller: descriptionController,
-            decoration: InputDecoration(labelText: 'Description'),
+            controller: widget.descriptionController,
+            decoration: const InputDecoration(labelText: 'Description'),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a description';
@@ -373,8 +425,8 @@ class DealForm extends StatelessWidget {
             },
           ),
           TextFormField(
-            controller: priceController,
-            decoration: InputDecoration(labelText: 'Price'),
+            controller: widget.priceController,
+            decoration: const InputDecoration(labelText: 'Price'),
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -387,8 +439,8 @@ class DealForm extends StatelessWidget {
             },
           ),
           TextFormField(
-            controller: minParticipantsController,
-            decoration: InputDecoration(labelText: 'Minimum Participants'),
+            controller: widget.minParticipantsController,
+            decoration: const InputDecoration(labelText: 'Minimum Participants'),
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -400,13 +452,114 @@ class DealForm extends StatelessWidget {
               return null;
             },
           ),
+          const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: onSave,
-            child: Text('Save Deal'),
+            onPressed: _pickImages,
+            child: const Text('Select Images (Max 3)'),
+          ),
+          if (_selectedImages.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('${_selectedImages.length} images selected'),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImages.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: kIsWeb 
+                      // For web platform
+                      ? Image.network(
+                          _selectedImages[index].path,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        )
+                      // For mobile platforms
+                      : Image.file(
+                          File(_selectedImages[index].path),
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        ),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () async {
+              if (widget.formKey.currentState!.validate()) {
+                await _createDealWithImages();
+                widget.onSave();
+              }
+            },
+            child: const Text('Save Deal'),
           ),
         ],
       ),
     );
+  }
+
+  Future<FormData> getFormData(List<XFile> images) async {
+    FormData formData = FormData();
+    
+    // Add form fields
+    formData.fields.addAll([
+      MapEntry('title', widget.titleController.text),
+      MapEntry('description', widget.descriptionController.text),
+      MapEntry('price', widget.priceController.text),
+      MapEntry('min_participants', widget.minParticipantsController.text),
+    ]);
+    
+    // Add images
+    for (var i = 0; i < images.length; i++) {
+      List<int> imageBytes = await images[i].readAsBytes();
+      String fileName = images[i].name;
+      formData.files.add(
+        MapEntry(
+          'images',
+          MultipartFile.fromBytes(
+            imageBytes,
+            filename: fileName,
+          ),
+        ),
+      );
+    }
+    
+    return formData;
+  }
+
+  Future<void> _createDealWithImages() async {
+    try {
+      final dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer ${Constants.jwtToken}';
+      
+      FormData formData = await getFormData(_selectedImages);
+      
+      final response = await dio.post(
+        '${Constants.apiUrl}/deals',
+        data: formData,
+      );
+      
+      if (response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Deal created successfully')),
+          );
+        }
+      } else {
+        throw Exception('Failed to create deal: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating deal: $e')),
+        );
+      }
+    }
   }
 }
 
