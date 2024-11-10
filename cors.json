@@ -1,8 +1,16 @@
 [
   {
-    "origin": ["http://localhost:*"],
-    "method": ["GET", "HEAD", "OPTIONS"],
-    "responseHeader": ["Content-Type"],
+    "origin": [
+      "http://localhost:*",
+      "https://utpanna-dev-admin.web.app",
+      "https://storage.googleapis.com"
+    ],
+    "method": ["GET", "HEAD", "OPTIONS", "PUT"],
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin",
+      "Authorization"
+    ],
     "maxAgeSeconds": 3600
   }
 ]
