@@ -44,7 +44,8 @@ class Deal {
   final int id;
   final String title;
   final String description;
-  final double price;
+  final double mrp;
+  final double deal_price;
   final int min_participants;
   final int current_participants;
   final String status;
@@ -58,10 +59,11 @@ class Deal {
     required this.id,
     required this.title,
     required this.description,
-    required this.price,
+    required this.mrp,
+    required this.deal_price,
     required this.min_participants,
     this.current_participants = 0,
-    this.status = 'open',
+    required this.status,
     required this.created_at,
     required this.updated_at,
     this.participants,
@@ -74,7 +76,8 @@ class Deal {
       'id': id,
       'title': title,
       'description': description,
-      'price': price,
+      'mrp': mrp,
+      'deal_price': deal_price,
       'min_participants': min_participants,
       'current_participants': current_participants,
       'status': status,
@@ -86,7 +89,8 @@ class Deal {
       id: json['id'],
       title: json['title'],
       description: json['description'],
-      price: json['price'].toDouble(),
+      mrp: (json['mrp'] ?? 0.0).toDouble(),
+      deal_price: (json['deal_price'] ?? 0.0).toDouble(),
       min_participants: json['min_participants'],
       current_participants: json['current_participants'] ?? 0,
       status: json['status'] ?? 'open',
@@ -134,8 +138,10 @@ class _AdminPanelState extends State<AdminPanel> {
   final _dealFormKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _mrpController = TextEditingController();
+  final _dealPriceController = TextEditingController();
   final _minParticipantsController = TextEditingController();
+  final _statusController = TextEditingController();
   final _authService = AuthService();
 
   @override
@@ -178,13 +184,14 @@ class _AdminPanelState extends State<AdminPanel> {
     if (_dealFormKey.currentState!.validate()) {
       final now = DateTime.now().toIso8601String();
       final deal = Deal(
-        id: 0, // The server will assign the actual ID
+        id: 0,
         title: _titleController.text,
         description: _descriptionController.text,
-        price: double.parse(_priceController.text),
+        mrp: double.parse(_mrpController.text),
+        deal_price: double.parse(_dealPriceController.text),
         min_participants: int.parse(_minParticipantsController.text),
         current_participants: 0,
-        status: 'open',
+        status: _statusController.text,
         created_at: now,
         updated_at: now,
       );
@@ -200,7 +207,7 @@ class _AdminPanelState extends State<AdminPanel> {
         );
 
         if (response.statusCode == 201) {
-          fetchDeals(); // Refresh the list of deals
+          fetchDeals();
           _dealFormKey.currentState?.reset();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Deal created successfully')),
@@ -282,15 +289,17 @@ class _AdminPanelState extends State<AdminPanel> {
             builder: (context) => AlertDialog(
               title: const Text('Create New Deal'),
               content: SizedBox(
-                height: 400, // Adjust height as needed
-                width: 300,  // Adjust width as needed
+                height: 600, // Increased height to accommodate all fields
+                width: 300,
                 child: SingleChildScrollView(
                   child: DealForm(
                     formKey: _dealFormKey,
                     titleController: _titleController,
                     descriptionController: _descriptionController,
-                    priceController: _priceController,
+                    mrpController: _mrpController,
+                    dealPriceController: _dealPriceController,
                     minParticipantsController: _minParticipantsController,
+                    statusController: _statusController,
                     onSave: () {
                       _createDeal();
                       Navigator.pop(context);
@@ -326,7 +335,8 @@ class DealList extends StatelessWidget {
           child: DataTable(
             columns: const [
               DataColumn(label: Text('Title')),
-              DataColumn(label: Text('Price')),
+              DataColumn(label: Text('MRP')),
+              DataColumn(label: Text('Deal Price')),
               DataColumn(label: Text('Participants')),
               DataColumn(label: Text('Status')),
               DataColumn(label: Text('Actions')),
@@ -334,7 +344,8 @@ class DealList extends StatelessWidget {
             rows: deals.map((deal) => DataRow(
               cells: [
                 DataCell(Text(deal.title)),
-                DataCell(Text('₹${deal.price}')),
+                DataCell(Text('₹${deal.mrp}')),
+                DataCell(Text('₹${deal.deal_price}')),
                 DataCell(Text('${deal.current_participants}/${deal.min_participants}')),
                 DataCell(Text(deal.status)),
                 DataCell(Row(
@@ -365,8 +376,10 @@ class DealForm extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
-  final TextEditingController priceController;
+  final TextEditingController mrpController;
+  final TextEditingController dealPriceController;
   final TextEditingController minParticipantsController;
+  final TextEditingController statusController;
   final VoidCallback onSave;
 
   const DealForm({
@@ -374,8 +387,10 @@ class DealForm extends StatefulWidget {
     required this.formKey,
     required this.titleController,
     required this.descriptionController,
-    required this.priceController,
+    required this.mrpController,
+    required this.dealPriceController,
     required this.minParticipantsController,
+    required this.statusController,
     required this.onSave,
   }) : super(key: key);
 
@@ -392,7 +407,7 @@ class _DealFormState extends State<DealForm> {
     if (images.isNotEmpty) {
       setState(() {
         _selectedImages.clear();
-        _selectedImages.addAll(images.take(3)); // Limit to 3 images
+        _selectedImages.addAll(images.take(3));
       });
     }
   }
@@ -416,7 +431,13 @@ class _DealFormState extends State<DealForm> {
           ),
           TextFormField(
             controller: widget.descriptionController,
-            decoration: const InputDecoration(labelText: 'Description'),
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              alignLabelWithHint: true,
+            ),
+            maxLines: 5,
+            textInputAction: TextInputAction.newline,
+            keyboardType: TextInputType.multiline,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a description';
@@ -425,15 +446,45 @@ class _DealFormState extends State<DealForm> {
             },
           ),
           TextFormField(
-            controller: widget.priceController,
-            decoration: const InputDecoration(labelText: 'Price'),
+            controller: widget.mrpController,
+            decoration: const InputDecoration(labelText: 'MRP'),
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter a price';
+                return 'Please enter MRP';
               }
               if (double.tryParse(value) == null) {
                 return 'Please enter a valid number';
+              }
+              return null;
+            },
+          ),
+          TextFormField(
+            controller: widget.dealPriceController,
+            decoration: const InputDecoration(labelText: 'Deal Price'),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter deal price';
+              }
+              if (double.tryParse(value) == null) {
+                return 'Please enter a valid number';
+              }
+              final dealPrice = double.parse(value);
+              final mrp = double.tryParse(widget.mrpController.text) ?? 0;
+              if (dealPrice >= mrp) {
+                return 'Deal price must be less than MRP';
+              }
+              return null;
+            },
+          ),
+          TextFormField(
+            controller: widget.statusController,
+            decoration: const InputDecoration(labelText: 'Status'),
+            maxLength: 20,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter status';
               }
               return null;
             },
@@ -510,8 +561,10 @@ class _DealFormState extends State<DealForm> {
     formData.fields.addAll([
       MapEntry('title', widget.titleController.text),
       MapEntry('description', widget.descriptionController.text),
-      MapEntry('price', widget.priceController.text),
+      MapEntry('mrp', widget.mrpController.text),
+      MapEntry('deal_price', widget.dealPriceController.text),
       MapEntry('min_participants', widget.minParticipantsController.text),
+      MapEntry('status', widget.statusController.text),
     ]);
     
     // Add images

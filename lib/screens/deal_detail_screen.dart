@@ -130,11 +130,19 @@ class _DealDetailScreenState extends State<DealDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Title: ${deal.title}', style: Theme.of(context).textTheme.titleLarge),
+                Text('Title: ${deal.title}', 
+                  style: Theme.of(context).textTheme.titleLarge
+                ),
                 const SizedBox(height: 16),
-                _buildImageGallery(deal.images), // Add this line
-                Text('Description: ${deal.description}'),
-                Text('Price: ₹${deal.price}'),
+                _buildImageGallery(deal.images),
+                const SizedBox(height: 16),
+                Text('Description:', 
+                  style: Theme.of(context).textTheme.titleMedium
+                ),
+                Text(deal.description),
+                const SizedBox(height: 16),
+                Text('MRP: ₹${deal.mrp}'),
+                Text('Deal Price: ₹${deal.deal_price}'),
                 Text('Minimum Participants: ${deal.min_participants}'),
                 Text('Current Participants: ${deal.current_participants}'),
                 Text('Progress: ${deal.progress_percentage?.toStringAsFixed(2)}%'),
