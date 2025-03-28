@@ -3,9 +3,10 @@
     "origin": [
       "http://localhost:*",
       "https://utpanna-dev-admin.web.app",
+      "https://utpanna-dev.web.app",
       "https://storage.googleapis.com"
     ],
-    "method": ["GET", "HEAD", "OPTIONS", "PUT"],
+    "method": ["GET", "POST", "HEAD", "OPTIONS", "PUT"],
     "responseHeader": [
       "Content-Type",
       "Access-Control-Allow-Origin",
