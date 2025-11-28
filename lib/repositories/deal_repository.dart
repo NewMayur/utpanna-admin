@@ -1,6 +1,6 @@
 import '../api/firestore_client.dart';
 import '../api/collections.dart';
-import '../screens/admin_panel.dart'; // For Deal model
+import '../models/farming_models.dart'; // For Deal model
 
 class DealRepository {
   final FirestoreClient _client;

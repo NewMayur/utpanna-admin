@@ -4,8 +4,9 @@ import '../repositories/objective_repository.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/recommendation_repository.dart';
 import '../repositories/deal_repository.dart';
+import '../repositories/alternatives_repository.dart';
+import '../repositories/user_repository.dart';
 import '../api/firestore_client.dart';
-import '../screens/admin_panel.dart'; // For Deal model
 
 class FarmingDataService {
   final CropRepository _cropRepo;
@@ -13,13 +14,17 @@ class FarmingDataService {
   final ProductRepository _productRepo;
   final RecommendationRepository _recommendationRepo;
   final DealRepository _dealRepo;
+  final AlternativesRepository _alternativesRepo;
+  final UserRepository _userRepo;
 
   FarmingDataService(FirestoreClient client)
       : _cropRepo = CropRepository(client),
         _objectiveRepo = ObjectiveRepository(client),
         _productRepo = ProductRepository(client),
         _recommendationRepo = RecommendationRepository(client),
-        _dealRepo = DealRepository(client);
+        _dealRepo = DealRepository(client),
+        _alternativesRepo = AlternativesRepository(client),
+        _userRepo = UserRepository(client);
 
   // ==================== CROP OPERATIONS ====================
 
@@ -391,6 +396,53 @@ class FarmingDataService {
   /// Get recommendations summary
   Future<List<Map<String, dynamic>>> getRecommendationsSummary() =>
       _recommendationRepo.getRecommendationsSummary();
+
+  // ==================== USER OPERATIONS ====================
+
+  /// Get all users
+  Future<List<User>> getAllUsers() => _userRepo.getAllUsers();
+
+  /// Get user by ID
+  Future<User?> getUserById(String userId) => _userRepo.getUserById(userId);
+
+  /// Get user by phone
+  Future<User?> getUserByPhone(String phone) => _userRepo.getUserByPhone(phone);
+
+  /// Create user
+  Future<String> createUser(User user) => _userRepo.createUser(user);
+
+  /// Update user
+  Future<void> updateUser(String userId, Map<String, dynamic> updates) =>
+      _userRepo.updateUser(userId, updates);
+
+  /// Delete user
+  Future<void> deleteUser(String userId) => _userRepo.deleteUser(userId);
+
+  /// Search users by phone
+  Future<List<User>> searchUsersByPhone(String phoneQuery) =>
+      _userRepo.searchUsersByPhone(phoneQuery);
+
+  /// Get users by village
+  Future<List<User>> getUsersByVillage(String village) =>
+      _userRepo.getUsersByVillage(village);
+
+  /// Get active users
+  Future<List<User>> getActiveUsers() => _userRepo.getActiveUsers();
+
+  /// Get recent users
+  Future<List<User>> getRecentUsers({int days = 30}) =>
+      _userRepo.getRecentUsers(days: days);
+
+  /// Get all villages
+  Future<List<String>> getAllVillages() => _userRepo.getAllVillages();
+
+  /// Get user statistics
+  Future<Map<String, dynamic>> getUserStats() => _userRepo.getUserStats();
+
+  /// Toggle user active status
+  Future<void> toggleUserActiveStatus(String userId, bool active) async {
+    await _userRepo.toggleUserActiveStatus(userId, active);
+  }
 
   // ==================== DATA INTEGRITY & VALIDATION ====================
 

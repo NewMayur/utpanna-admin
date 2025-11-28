@@ -103,27 +103,45 @@ class Objective {
   String toString() => name;
 }
 
-/// Farming Product model - represents agricultural products
+//// ************************ EXECUTE_COMMAND ************************
+// flutter analyze showed that the Alternative and User classes are missing
+// I need to add these classes to make the code compile
+
+/// Farming Product model - represents agricultural products (Main Product)
 class FarmingProduct {
   final String id; // Auto-generated: p_[number]
   final String name; // Product name (e.g., "19:19:19", "Emoctan")
+  final String title; // Display title (may be same as name)
+  final String activeIngredient; // Active ingredient
+  final String chemicalComposition; // Chemical composition
+  final String modeOfAction; // How the product works
+  final String usedFor; // What it's used for
+  final String usageDirection; // Usage instructions
   final String
       category; // Product category (e.g., "खते", "कीटकनाशके", "बुरशीनाशके", "टॉनिक")
   final double price; // Selling price in rupees
   final double mrp; // Maximum retail price in rupees
+  final int savings; // Savings amount
   final String unit; // Unit of measurement (e.g., "1 L", "250 Gms", "1 Kg")
-  final String? imageUrl; // URL to product image
+  final List<String>? imageUrls; // URLs to product images
   final String?
       activeDealId; // Auto-generated unique identifier of active deal for this product
 
   const FarmingProduct({
     required this.id,
     required this.name,
+    required this.title,
+    required this.activeIngredient,
+    required this.chemicalComposition,
+    required this.modeOfAction,
+    required this.usedFor,
+    required this.usageDirection,
     required this.category,
     required this.price,
     required this.mrp,
+    required this.savings,
     required this.unit,
-    this.imageUrl,
+    this.imageUrls,
     this.activeDealId,
   });
 
@@ -133,11 +151,20 @@ class FarmingProduct {
     return FarmingProduct(
       id: doc.id,
       name: data['name'] ?? '',
+      title: data['title'] ?? data['name'] ?? '',
+      activeIngredient: data['activeIngredient'] ?? '',
+      chemicalComposition: data['chemicalComposition'] ?? '',
+      modeOfAction: data['modeOfAction'] ?? '',
+      usedFor: data['usedFor'] ?? '',
+      usageDirection: data['usageDirection'] ?? '',
       category: data['category'] ?? '',
       price: (data['price'] ?? 0.0).toDouble(),
       mrp: (data['mrp'] ?? data['price'] ?? 0.0).toDouble(),
+      savings: data['savings'] ?? 0,
       unit: data['unit'] ?? '',
-      imageUrl: data['imageUrl'],
+      imageUrls: data['imageUrls'] != null
+          ? List<String>.from(data['imageUrls'])
+          : null,
       activeDealId: data['activeDealId'],
     );
   }
@@ -146,11 +173,18 @@ class FarmingProduct {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
+      'title': title,
+      'activeIngredient': activeIngredient,
+      'chemicalComposition': chemicalComposition,
+      'modeOfAction': modeOfAction,
+      'usedFor': usedFor,
+      'usageDirection': usageDirection,
       'category': category,
       'price': price,
       'mrp': mrp,
+      'savings': savings,
       'unit': unit,
-      'imageUrl': imageUrl,
+      'imageUrls': imageUrls,
       'activeDealId': activeDealId,
     };
   }
@@ -171,21 +205,35 @@ class FarmingProduct {
   FarmingProduct copyWith({
     String? id,
     String? name,
+    String? title,
+    String? activeIngredient,
+    String? chemicalComposition,
+    String? modeOfAction,
+    String? usedFor,
+    String? usageDirection,
     String? category,
     double? price,
     double? mrp,
+    int? savings,
     String? unit,
-    String? imageUrl,
+    List<String>? imageUrls,
     String? activeDealId,
   }) {
     return FarmingProduct(
       id: id ?? this.id,
       name: name ?? this.name,
+      title: title ?? this.title,
+      activeIngredient: activeIngredient ?? this.activeIngredient,
+      chemicalComposition: chemicalComposition ?? this.chemicalComposition,
+      modeOfAction: modeOfAction ?? this.modeOfAction,
+      usedFor: usedFor ?? this.usedFor,
+      usageDirection: usageDirection ?? this.usageDirection,
       category: category ?? this.category,
       price: price ?? this.price,
       mrp: mrp ?? this.mrp,
+      savings: savings ?? this.savings,
       unit: unit ?? this.unit,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
       activeDealId: activeDealId ?? this.activeDealId,
     );
   }
@@ -347,11 +395,20 @@ class FarmingData {
           .map((product) => FarmingProduct(
                 id: 'p_${DateTime.now().millisecondsSinceEpoch}_${product['id'] ?? '0'}',
                 name: product['name'] ?? '',
+                title: product['title'] ?? product['name'] ?? '',
+                activeIngredient: product['activeIngredient'] ?? '',
+                chemicalComposition: product['chemicalComposition'] ?? '',
+                modeOfAction: product['modeOfAction'] ?? '',
+                usedFor: product['usedFor'] ?? '',
+                usageDirection: product['usageDirection'] ?? '',
                 category: product['category'] ?? '',
                 price: (product['price'] ?? 0.0).toDouble(),
                 mrp: (product['mrp'] ?? product['price'] ?? 0.0).toDouble(),
+                savings: product['savings'] ?? 0,
                 unit: product['unit'] ?? '',
-                imageUrl: product['image_url'],
+                imageUrls: product['imageUrls'] != null
+                    ? List<String>.from(product['imageUrls'])
+                    : null,
                 activeDealId: product['active_deal_uuid'],
               ))
           .toList(),
@@ -374,4 +431,321 @@ class FarmingData {
           .toList(),
     );
   }
+}
+
+/// Alternative Product model - represents cheaper alternatives to main products
+class Alternative {
+  final String id; // Auto-generated: alt_[number]
+  final String parentProductId; // Foreign Key to main product
+  final String title; // Alternative product name
+  final String activeIngredient; // Active ingredient
+  final String chemicalComposition; // Chemical composition
+  final String modeOfAction; // How the product works
+  final String usedFor; // What it's used for
+  final String usageDirection; // Usage instructions
+  final double price; // Alternative price (lower than main)
+  final int savings; // Savings amount
+  final List<String>? imageUrls; // URLs to alternative images
+  final DateTime createdAt;
+
+  const Alternative({
+    required this.id,
+    required this.parentProductId,
+    required this.title,
+    required this.activeIngredient,
+    required this.chemicalComposition,
+    required this.modeOfAction,
+    required this.usedFor,
+    required this.usageDirection,
+    required this.price,
+    required this.savings,
+    this.imageUrls,
+    required this.createdAt,
+  });
+
+  /// Factory constructor for Firestore document
+  factory Alternative.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Alternative(
+      id: doc.id,
+      parentProductId: data['parentProductId'] ?? '',
+      title: data['title'] ?? '',
+      activeIngredient: data['activeIngredient'] ?? '',
+      chemicalComposition: data['chemicalComposition'] ?? '',
+      modeOfAction: data['modeOfAction'] ?? '',
+      usedFor: data['usedFor'] ?? '',
+      usageDirection: data['usageDirection'] ?? '',
+      price: (data['price'] ?? 0.0).toDouble(),
+      savings: data['savings'] ?? 0,
+      imageUrls: data['imageUrls'] != null
+          ? List<String>.from(data['imageUrls'])
+          : null,
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+    );
+  }
+
+  /// Convert to Firestore format
+  Map<String, dynamic> toFirestore() {
+    return {
+      'parentProductId': parentProductId,
+      'title': title,
+      'activeIngredient': activeIngredient,
+      'chemicalComposition': chemicalComposition,
+      'modeOfAction': modeOfAction,
+      'usedFor': usedFor,
+      'usageDirection': usageDirection,
+      'price': price,
+      'savings': savings,
+      'imageUrls': imageUrls,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  /// Generate auto ID
+  static String generateId() {
+    final counter = DateTime.now().millisecondsSinceEpoch;
+    return 'alt_$counter';
+  }
+
+  /// Create copy with new values
+  Alternative copyWith({
+    String? id,
+    String? parentProductId,
+    String? title,
+    String? activeIngredient,
+    String? chemicalComposition,
+    String? modeOfAction,
+    String? usedFor,
+    String? usageDirection,
+    double? price,
+    int? savings,
+    List<String>? imageUrls,
+    DateTime? createdAt,
+  }) {
+    return Alternative(
+      id: id ?? this.id,
+      parentProductId: parentProductId ?? this.parentProductId,
+      title: title ?? this.title,
+      activeIngredient: activeIngredient ?? this.activeIngredient,
+      chemicalComposition: chemicalComposition ?? this.chemicalComposition,
+      modeOfAction: modeOfAction ?? this.modeOfAction,
+      usedFor: usedFor ?? this.usedFor,
+      usageDirection: usageDirection ?? this.usageDirection,
+      price: price ?? this.price,
+      savings: savings ?? this.savings,
+      imageUrls: imageUrls ?? this.imageUrls,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  String toString() => '$title (₹$price)';
+}
+
+/// Deal model for group buying deals
+class Deal {
+  final String id; // Auto-generated: deal_[number]
+  final String title;
+  final String description;
+  final double mrp;
+  final double dealPrice;
+  final int minParticipants;
+  final int currentParticipants;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<String>? imageUrls; // Firebase Storage URLs
+
+  Deal({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.mrp,
+    required this.dealPrice,
+    required this.minParticipants,
+    this.currentParticipants = 0,
+    this.status = 'active',
+    required this.createdAt,
+    required this.updatedAt,
+    this.imageUrls,
+  });
+
+  /// Firestore serialization
+  factory Deal.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to handle both Timestamp and String date formats
+    DateTime _parseDate(dynamic dateValue) {
+      if (dateValue is Timestamp) {
+        return dateValue.toDate();
+      } else if (dateValue is String) {
+        return DateTime.tryParse(dateValue) ?? DateTime.now();
+      } else {
+        return DateTime.now();
+      }
+    }
+
+    return Deal(
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      mrp: (data['mrp'] ?? 0.0).toDouble(),
+      dealPrice: (data['dealPrice'] ?? 0.0).toDouble(),
+      minParticipants: data['minParticipants'] ?? 0,
+      currentParticipants: data['currentParticipants'] ?? 0,
+      status: data['status'] ?? 'active',
+      createdAt: _parseDate(data['createdAt']),
+      updatedAt: _parseDate(data['updatedAt']),
+      imageUrls: data['imageUrls'] != null
+          ? List<String>.from(data['imageUrls'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'title': title,
+      'description': description,
+      'mrp': mrp,
+      'dealPrice': dealPrice,
+      'minParticipants': minParticipants,
+      'currentParticipants': currentParticipants,
+      'status': status,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'imageUrls': imageUrls,
+    };
+  }
+
+  /// Generate auto ID
+  static String generateId() {
+    final counter = DateTime.now().millisecondsSinceEpoch;
+    return 'deal_$counter';
+  }
+
+  /// Legacy JSON methods for backward compatibility during migration
+  factory Deal.fromJson(Map<String, dynamic> json) {
+    return Deal(
+      id: 'deal_${json['id']?.toString() ?? '0'}',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      mrp: (json['mrp'] ?? 0.0).toDouble(),
+      dealPrice: (json['deal_price'] ?? 0.0).toDouble(),
+      minParticipants: json['min_participants'] ?? 0,
+      currentParticipants: json['current_participants'] ?? 0,
+      status: json['status'] ?? 'active',
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      imageUrls: json['images'] != null
+          ? (json['images'] as List).map((e) => e.toString()).toList()
+          : null,
+    );
+  }
+
+  // Backward compatibility getters for existing code
+  double get deal_price => dealPrice;
+  int get min_participants => minParticipants;
+  int get current_participants => currentParticipants;
+  String get created_at => createdAt.toIso8601String();
+  String get updated_at => updatedAt.toIso8601String();
+  List<dynamic>? get images =>
+      imageUrls?.map((url) => {'image_url': url}).toList();
+  double? get progress_percentage =>
+      minParticipants > 0 ? (currentParticipants / minParticipants) * 100 : 0.0;
+  List<Participant>?
+      participants; // For backward compatibility - loaded from REST API
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': int.parse(id.split('_')[1]),
+      'title': title,
+      'description': description,
+      'mrp': mrp,
+      'deal_price': dealPrice,
+      'min_participants': minParticipants,
+      'current_participants': currentParticipants,
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'images': imageUrls,
+    };
+  }
+
+  @override
+  String toString() => '$title (₹$dealPrice)';
+}
+
+/// Participant model for deal participants
+class Participant {
+  final int id;
+  final String name;
+  final String phone_number;
+  final String address;
+  final String joined_at;
+
+  Participant({
+    required this.id,
+    required this.name,
+    required this.phone_number,
+    required this.address,
+    required this.joined_at,
+  });
+
+  factory Participant.fromJson(Map<String, dynamic> json) {
+    return Participant(
+      id: json['id'],
+      name: json['name'],
+      phone_number: json['phone_number'],
+      address: json['address'],
+      joined_at: json['joined_at'],
+    );
+  }
+}
+
+/// User model for farmers
+class User {
+  final String uid;
+  final String name;
+  final String phone;
+  final String? village;
+  final DateTime registeredAt;
+  final bool active;
+
+  const User({
+    required this.uid,
+    required this.name,
+    required this.phone,
+    this.village,
+    required this.registeredAt,
+    this.active = true,
+  });
+
+  factory User.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return User(
+      uid: doc.id,
+      name: data['name'] ?? '',
+      phone: data['phone'] ?? '',
+      village: data['village'],
+      registeredAt: data['registeredAt'] != null
+          ? (data['registeredAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      active: data['active'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'phone': phone,
+      'village': village,
+      'registeredAt': Timestamp.fromDate(registeredAt),
+      'active': active,
+    };
+  }
+
+  @override
+  String toString() => '$name ($phone)';
 }

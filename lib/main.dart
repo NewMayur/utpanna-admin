@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:utpanna_admin/screens/login_screen.dart';
-import 'package:utpanna_admin/screens/admin_panel.dart';
+import 'package:utpanna_admin/screens/main_admin_panel.dart';
 import 'package:utpanna_admin/utils/firebase_config.dart';
 import 'package:utpanna_admin/utils/app_theme.dart';
 import 'package:utpanna_admin/services/auth_service.dart';
@@ -75,7 +75,7 @@ class MyApp extends StatelessWidget {
         // Verify Firebase user is still authenticated
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
-          return AdminPanel();
+          return MainAdminPanel();
         }
       }
 

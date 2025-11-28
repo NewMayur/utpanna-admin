@@ -15,8 +15,14 @@ class FirestoreCollections {
   static CollectionReference<Map<String, dynamic>> get productsRef =>
       FirestoreClient.instance.collection('products');
 
+  static CollectionReference<Map<String, dynamic>> get alternativesRef =>
+      FirestoreClient.instance.collection('alternatives');
+
   static CollectionReference<Map<String, dynamic>> get recommendationsRef =>
       FirestoreClient.instance.collection('recommendations');
+
+  static CollectionReference<Map<String, dynamic>> get usersRef =>
+      FirestoreClient.instance.collection('users');
 
   /// Subcollections
   static CollectionReference<Map<String, dynamic>> dealParticipantsRef(

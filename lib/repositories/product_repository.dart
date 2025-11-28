@@ -65,11 +65,18 @@ class ProductRepository {
       final productWithId = FarmingProduct(
         id: productId,
         name: product.name,
+        title: product.title,
+        activeIngredient: product.activeIngredient,
+        chemicalComposition: product.chemicalComposition,
+        modeOfAction: product.modeOfAction,
+        usedFor: product.usedFor,
+        usageDirection: product.usageDirection,
         category: product.category,
         price: product.price,
         mrp: product.mrp,
+        savings: product.savings,
         unit: product.unit,
-        imageUrl: product.imageUrl,
+        imageUrls: product.imageUrls,
         activeDealId: product.activeDealId,
       );
 

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../api/firestore_client.dart';
-import '../screens/admin_panel.dart'; // for Deal model
+import '../models/farming_models.dart'; // for Deal model
 import '../utils/constants.dart';
 
 class DealDetailScreen extends StatefulWidget {

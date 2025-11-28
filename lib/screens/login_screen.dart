@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:utpanna_admin/services/auth_service.dart';
-import 'package:utpanna_admin/screens/admin_panel.dart';
+import 'package:utpanna_admin/screens/main_admin_panel.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -33,11 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setInt(
           'last_login_time', DateTime.now().millisecondsSinceEpoch);
 
-      // Navigate to AdminPanel
+      // Navigate to MainAdminPanel
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => const AdminPanel(),
+            builder: (context) => MainAdminPanel(),
           ),
         );
 

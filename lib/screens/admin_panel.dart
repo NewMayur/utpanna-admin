@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:utpanna_admin/services/auth_service.dart';
-import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import 'package:utpanna_admin/services/auth_service.dart';
+import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:utpanna_admin/screens/deal_detail_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -14,6 +14,7 @@ import 'package:dio/dio.dart';
 import 'package:utpanna_admin/api/firestore_client.dart';
 import 'package:utpanna_admin/api/firebase_storage.dart';
 import 'package:utpanna_admin/services/farming_data_service.dart';
+import 'package:utpanna_admin/models/farming_models.dart';
 
 class DealImage {
   final int id;
@@ -35,169 +36,14 @@ class DealImage {
   }
 }
 
-class AdminPanel extends StatefulWidget {
-  const AdminPanel({Key? key}) : super(key: key);
+class GroupDealsScreen extends StatefulWidget {
+  const GroupDealsScreen({Key? key}) : super(key: key);
 
   @override
-  _AdminPanelState createState() => _AdminPanelState();
+  _GroupDealsScreenState createState() => _GroupDealsScreenState();
 }
 
-class Deal {
-  final String id; // Auto-generated: deal_[number]
-  final String title;
-  final String description;
-  final double mrp;
-  final double dealPrice;
-  final int minParticipants;
-  final int currentParticipants;
-  final String status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final List<String>? imageUrls; // Firebase Storage URLs
-
-  Deal({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.mrp,
-    required this.dealPrice,
-    required this.minParticipants,
-    this.currentParticipants = 0,
-    this.status = 'active',
-    required this.createdAt,
-    required this.updatedAt,
-    this.imageUrls,
-  });
-
-  /// Firestore serialization
-  factory Deal.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
-    // Helper function to handle both Timestamp and String date formats
-    DateTime _parseDate(dynamic dateValue) {
-      if (dateValue is Timestamp) {
-        return dateValue.toDate();
-      } else if (dateValue is String) {
-        return DateTime.tryParse(dateValue) ?? DateTime.now();
-      } else {
-        return DateTime.now();
-      }
-    }
-
-    return Deal(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      mrp: (data['mrp'] ?? 0.0).toDouble(),
-      dealPrice: (data['dealPrice'] ?? 0.0).toDouble(),
-      minParticipants: data['minParticipants'] ?? 0,
-      currentParticipants: data['currentParticipants'] ?? 0,
-      status: data['status'] ?? 'active',
-      createdAt: _parseDate(data['createdAt']),
-      updatedAt: _parseDate(data['updatedAt']),
-      imageUrls: data['imageUrls'] != null
-          ? List<String>.from(data['imageUrls'])
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'title': title,
-      'description': description,
-      'mrp': mrp,
-      'dealPrice': dealPrice,
-      'minParticipants': minParticipants,
-      'currentParticipants': currentParticipants,
-      'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
-      'imageUrls': imageUrls,
-    };
-  }
-
-  /// Generate auto ID
-  static String generateId() {
-    final counter = DateTime.now().millisecondsSinceEpoch;
-    return 'deal_$counter';
-  }
-
-  /// Legacy JSON methods for backward compatibility during migration
-  factory Deal.fromJson(Map<String, dynamic> json) {
-    return Deal(
-      id: 'deal_${json['id']?.toString() ?? '0'}',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      mrp: (json['mrp'] ?? 0.0).toDouble(),
-      dealPrice: (json['deal_price'] ?? 0.0).toDouble(),
-      minParticipants: json['min_participants'] ?? 0,
-      currentParticipants: json['current_participants'] ?? 0,
-      status: json['status'] ?? 'active',
-      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
-      imageUrls: json['images'] != null
-          ? (json['images'] as List).map((e) => e.toString()).toList()
-          : null,
-    );
-  }
-
-  // Backward compatibility getters for existing code
-  double get deal_price => dealPrice;
-  int get min_participants => minParticipants;
-  int get current_participants => currentParticipants;
-  String get created_at => createdAt.toIso8601String();
-  String get updated_at => updatedAt.toIso8601String();
-  List<dynamic>? get images =>
-      imageUrls?.map((url) => {'image_url': url}).toList();
-  double? get progress_percentage =>
-      minParticipants > 0 ? (currentParticipants / minParticipants) * 100 : 0.0;
-  List<Participant>?
-      participants; // For backward compatibility - loaded from REST API
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': int.parse(id.split('_')[1]),
-      'title': title,
-      'description': description,
-      'mrp': mrp,
-      'deal_price': dealPrice,
-      'min_participants': minParticipants,
-      'current_participants': currentParticipants,
-      'status': status,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-      'images': imageUrls,
-    };
-  }
-}
-
-class Participant {
-  final int id;
-  final String name;
-  final String phone_number;
-  final String address;
-  final String joined_at;
-
-  Participant({
-    required this.id,
-    required this.name,
-    required this.phone_number,
-    required this.address,
-    required this.joined_at,
-  });
-
-  factory Participant.fromJson(Map<String, dynamic> json) {
-    return Participant(
-      id: json['id'],
-      name: json['name'],
-      phone_number: json['phone_number'],
-      address: json['address'],
-      joined_at: json['joined_at'],
-    );
-  }
-}
-
-class _AdminPanelState extends State<AdminPanel> {
+class _GroupDealsScreenState extends State<GroupDealsScreen> {
   List<Deal> deals = [];
   final _dealFormKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -729,7 +575,7 @@ class _DealFormState extends State<DealForm> {
 
       // Create deal in Firestore
       final adminPanelState =
-          context.findAncestorStateOfType<_AdminPanelState>();
+          context.findAncestorStateOfType<_GroupDealsScreenState>();
       if (adminPanelState != null) {
         // Call the parent's create deal method which uses Firestore
         await adminPanelState._createDeal(imageUrls: imageUrls);
