@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:utpanna_admin/services/auth_service.dart';
 import 'package:utpanna_admin/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:dio/dio.dart';
+import 'package:utpanna_admin/api/firestore_client.dart';
+import 'package:utpanna_admin/api/firebase_storage.dart';
+import 'package:utpanna_admin/services/farming_data_service.dart';
 
 class DealImage {
   final int id;
@@ -32,78 +36,138 @@ class DealImage {
 }
 
 class AdminPanel extends StatefulWidget {
-  final String token;
-
-  const AdminPanel({required this.token, Key? key}) : super(key: key);
+  const AdminPanel({Key? key}) : super(key: key);
 
   @override
   _AdminPanelState createState() => _AdminPanelState();
 }
 
 class Deal {
-  final int id;
+  final String id; // Auto-generated: deal_[number]
   final String title;
   final String description;
   final double mrp;
-  final double deal_price;
-  final int min_participants;
-  final int current_participants;
+  final double dealPrice;
+  final int minParticipants;
+  final int currentParticipants;
   final String status;
-  final String created_at;
-  final String updated_at;
-  final List<Participant>? participants;
-  final double? progress_percentage;
-  final List<dynamic>? images;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<String>? imageUrls; // Firebase Storage URLs
 
   Deal({
     required this.id,
     required this.title,
     required this.description,
     required this.mrp,
-    required this.deal_price,
-    required this.min_participants,
-    this.current_participants = 0,
-    required this.status,
-    required this.created_at,
-    required this.updated_at,
-    this.participants,
-    this.progress_percentage,
-    this.images,
+    required this.dealPrice,
+    required this.minParticipants,
+    this.currentParticipants = 0,
+    this.status = 'active',
+    required this.createdAt,
+    required this.updatedAt,
+    this.imageUrls,
   });
 
-  Map<String, dynamic> toJson() {
+  /// Firestore serialization
+  factory Deal.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to handle both Timestamp and String date formats
+    DateTime _parseDate(dynamic dateValue) {
+      if (dateValue is Timestamp) {
+        return dateValue.toDate();
+      } else if (dateValue is String) {
+        return DateTime.tryParse(dateValue) ?? DateTime.now();
+      } else {
+        return DateTime.now();
+      }
+    }
+
+    return Deal(
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      mrp: (data['mrp'] ?? 0.0).toDouble(),
+      dealPrice: (data['dealPrice'] ?? 0.0).toDouble(),
+      minParticipants: data['minParticipants'] ?? 0,
+      currentParticipants: data['currentParticipants'] ?? 0,
+      status: data['status'] ?? 'active',
+      createdAt: _parseDate(data['createdAt']),
+      updatedAt: _parseDate(data['updatedAt']),
+      imageUrls: data['imageUrls'] != null
+          ? List<String>.from(data['imageUrls'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
       'title': title,
       'description': description,
       'mrp': mrp,
-      'deal_price': deal_price,
-      'min_participants': min_participants,
-      'current_participants': current_participants,
+      'dealPrice': dealPrice,
+      'minParticipants': minParticipants,
+      'currentParticipants': currentParticipants,
       'status': status,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'imageUrls': imageUrls,
     };
   }
 
+  /// Generate auto ID
+  static String generateId() {
+    final counter = DateTime.now().millisecondsSinceEpoch;
+    return 'deal_$counter';
+  }
+
+  /// Legacy JSON methods for backward compatibility during migration
   factory Deal.fromJson(Map<String, dynamic> json) {
     return Deal(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
+      id: 'deal_${json['id']?.toString() ?? '0'}',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
       mrp: (json['mrp'] ?? 0.0).toDouble(),
-      deal_price: (json['deal_price'] ?? 0.0).toDouble(),
-      min_participants: json['min_participants'],
-      current_participants: json['current_participants'] ?? 0,
-      status: json['status'] ?? 'open',
-      created_at: json['created_at'],
-      updated_at: json['updated_at'],
-      participants: json['participants'] != null 
-          ? (json['participants'] as List)
-              .map((p) => Participant.fromJson(p))
-              .toList()
+      dealPrice: (json['deal_price'] ?? 0.0).toDouble(),
+      minParticipants: json['min_participants'] ?? 0,
+      currentParticipants: json['current_participants'] ?? 0,
+      status: json['status'] ?? 'active',
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      imageUrls: json['images'] != null
+          ? (json['images'] as List).map((e) => e.toString()).toList()
           : null,
-      progress_percentage: json['progress_percentage']?.toDouble(),
-      images: json['images'] as List<dynamic>?,
     );
+  }
+
+  // Backward compatibility getters for existing code
+  double get deal_price => dealPrice;
+  int get min_participants => minParticipants;
+  int get current_participants => currentParticipants;
+  String get created_at => createdAt.toIso8601String();
+  String get updated_at => updatedAt.toIso8601String();
+  List<dynamic>? get images =>
+      imageUrls?.map((url) => {'image_url': url}).toList();
+  double? get progress_percentage =>
+      minParticipants > 0 ? (currentParticipants / minParticipants) * 100 : 0.0;
+  List<Participant>?
+      participants; // For backward compatibility - loaded from REST API
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': int.parse(id.split('_')[1]),
+      'title': title,
+      'description': description,
+      'mrp': mrp,
+      'deal_price': dealPrice,
+      'min_participants': minParticipants,
+      'current_participants': currentParticipants,
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'images': imageUrls,
+    };
   }
 }
 
@@ -144,34 +208,27 @@ class _AdminPanelState extends State<AdminPanel> {
   final _statusController = TextEditingController();
   final _authService = AuthService();
 
+  // Initialize services
+  late final FirestoreClient _firestoreClient;
+  late final FarmingDataService _farmingDataService;
+
   @override
   void initState() {
     super.initState();
-    // Store token in Constants
-    Constants.updateJwtToken(widget.token);
+
+    // Initialize Firestore client and farming data service
+    _firestoreClient = FirestoreClient();
+    _farmingDataService = FarmingDataService(_firestoreClient);
+
     fetchDeals();
   }
 
   Future<void> fetchDeals() async {
     try {
-      final response = await http.get(
-        Uri.parse('${Constants.apiUrl}/deal-list'),
-        headers: {
-          'Authorization': 'Bearer ${Constants.jwtToken}',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> dealsJson = json.decode(response.body);
-        setState(() {
-          deals = dealsJson.map((json) => Deal.fromJson(json)).toList();
-        });
-      } else {
-        print('Failed to fetch deals: ${response.statusCode}');
-        print('Response body: ${response.body}');
-        showToast(context, 'Failed to fetch deals: ${response.statusCode}');
-      }
+      final dealsData = await _farmingDataService.getAllDeals();
+      setState(() {
+        deals = dealsData;
+      });
     } catch (e) {
       print('Error fetching deals: $e');
       if (mounted) {
@@ -180,85 +237,71 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _createDeal() async {
+  Future<void> _createDeal({List<String>? imageUrls}) async {
     if (_dealFormKey.currentState!.validate()) {
-      final now = DateTime.now().toIso8601String();
-      final deal = Deal(
-        id: 0,
-        title: _titleController.text,
-        description: _descriptionController.text,
-        mrp: double.parse(_mrpController.text),
-        deal_price: double.parse(_dealPriceController.text),
-        min_participants: int.parse(_minParticipantsController.text),
-        current_participants: 0,
-        status: _statusController.text,
-        created_at: now,
-        updated_at: now,
-      );
-
       try {
-        final response = await http.post(
-          Uri.parse('${Constants.apiUrl}/deals'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${Constants.jwtToken}',
-          },
-          body: json.encode(deal.toJson()),
+        final deal = Deal(
+          id: Deal.generateId(), // Auto-generate ID
+          title: _titleController.text,
+          description: _descriptionController.text,
+          mrp: double.parse(_mrpController.text),
+          dealPrice: double.parse(_dealPriceController.text),
+          minParticipants: int.parse(_minParticipantsController.text),
+          currentParticipants: 0,
+          status: _statusController.text,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          imageUrls: imageUrls, // Use provided image URLs
         );
 
-        if (response.statusCode == 201) {
-          fetchDeals();
-          _dealFormKey.currentState?.reset();
+        await _farmingDataService.createDeal(deal);
+
+        fetchDeals();
+        _dealFormKey.currentState?.reset();
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deal created successfully')),
+            const SnackBar(content: Text('Deal created successfully')),
           );
-        } else {
-          throw Exception('Failed to create deal: ${response.statusCode}');
         }
       } catch (e) {
         print('Error creating deal: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating deal: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error creating deal: $e')),
+          );
+        }
       }
     }
   }
 
-  Future<void> _deleteDeal(String id) async {
+  Future<void> _deleteDeal(String dealId) async {
     try {
-      final response = await http.delete(
-        Uri.parse('${Constants.apiUrl}/deals/$id'),
-        headers: {
-          'Authorization': 'Bearer ${Constants.jwtToken}',
-        },
-      );
-      if (response.statusCode == 200) {
-        fetchDeals();
+      await _farmingDataService.deleteDeal(dealId);
+      fetchDeals();
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Deal deleted successfully')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete deal: ${response.statusCode}')),
+          const SnackBar(content: Text('Deal deleted successfully')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting deal: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting deal: $e')),
+        );
+      }
     }
   }
 
   void _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    Constants.updateJwtToken(''); // Clear token from Constants
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => LoginScreen()),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logged out successfully')),
-    );
+    await _authService.logout();
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logged out successfully')),
+      );
+    }
   }
 
   @override
@@ -321,54 +364,62 @@ class DealList extends StatelessWidget {
   final Function(String) onDelete;
 
   const DealList({
-    Key? key, 
+    Key? key,
     required this.deals,
     required this.onDelete,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return deals.isEmpty 
-      ? const Center(child: Text('No deals available'))
-      : SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Title')),
-              DataColumn(label: Text('MRP')),
-              DataColumn(label: Text('Deal Price')),
-              DataColumn(label: Text('Participants')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Actions')),
-            ],
-            rows: deals.map((deal) => DataRow(
-              cells: [
-                DataCell(Text(deal.title)),
-                DataCell(Text('₹${deal.mrp}')),
-                DataCell(Text('₹${deal.deal_price}')),
-                DataCell(Text('${deal.current_participants}/${deal.min_participants}')),
-                DataCell(Text(deal.status)),
-                DataCell(Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => onDelete(deal.id.toString()),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.info),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DealDetailScreen(dealId: deal.id),
-                        ),
-                      ),
-                    ),
-                  ],
-                )),
+    return deals.isEmpty
+        ? const Center(child: Text('No deals available'))
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Title')),
+                DataColumn(label: Text('MRP')),
+                DataColumn(label: Text('Deal Price')),
+                DataColumn(label: Text('Participants')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Actions')),
               ],
-            )).toList(),
-          ),
-        );
+              rows: deals
+                  .map((deal) => DataRow(
+                        cells: [
+                          DataCell(Text(deal.title)),
+                          DataCell(Text('₹${deal.mrp}')),
+                          DataCell(
+                              Text('₹${deal.dealPrice}')), // Fixed field name
+                          DataCell(Text(
+                              '${deal.currentParticipants}/${deal.minParticipants}')), // Fixed field names
+                          DataCell(Text(deal.status)),
+                          DataCell(Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () =>
+                                    onDelete(deal.id), // ID is now String
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.info),
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DealDetailScreen(
+                                      dealId:
+                                          deal.id, // Pass Firestore document ID
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )),
+                        ],
+                      ))
+                  .toList(),
+            ),
+          );
   }
 }
 
@@ -491,7 +542,8 @@ class _DealFormState extends State<DealForm> {
           ),
           TextFormField(
             controller: widget.minParticipantsController,
-            decoration: const InputDecoration(labelText: 'Minimum Participants'),
+            decoration:
+                const InputDecoration(labelText: 'Minimum Participants'),
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -519,21 +571,21 @@ class _DealFormState extends State<DealForm> {
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.all(4.0),
-                    child: kIsWeb 
-                      // For web platform
-                      ? Image.network(
-                          _selectedImages[index].path,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                        )
-                      // For mobile platforms
-                      : Image.file(
-                          File(_selectedImages[index].path),
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                        ),
+                    child: kIsWeb
+                        // For web platform
+                        ? Image.network(
+                            _selectedImages[index].path,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          )
+                        // For mobile platforms
+                        : Image.file(
+                            File(_selectedImages[index].path),
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
                   );
                 },
               ),
@@ -543,8 +595,7 @@ class _DealFormState extends State<DealForm> {
           ElevatedButton(
             onPressed: () async {
               if (widget.formKey.currentState!.validate()) {
-                await _createDealWithImages();
-                widget.onSave();
+                await _createDealWithUploadedImages();
               }
             },
             child: const Text('Save Deal'),
@@ -556,7 +607,7 @@ class _DealFormState extends State<DealForm> {
 
   Future<FormData> getFormData(List<XFile> images) async {
     FormData formData = FormData();
-    
+
     // Add form fields
     formData.fields.addAll([
       MapEntry('title', widget.titleController.text),
@@ -566,7 +617,7 @@ class _DealFormState extends State<DealForm> {
       MapEntry('min_participants', widget.minParticipantsController.text),
       MapEntry('status', widget.statusController.text),
     ]);
-    
+
     // Add images
     for (var i = 0; i < images.length; i++) {
       List<int> imageBytes = await images[i].readAsBytes();
@@ -581,30 +632,114 @@ class _DealFormState extends State<DealForm> {
         ),
       );
     }
-    
+
     return formData;
   }
 
-  Future<void> _createDealWithImages() async {
+  Future<void> _createDealWithUploadedImages() async {
     try {
-      final dio = Dio();
-      dio.options.headers['Authorization'] = 'Bearer ${Constants.jwtToken}';
-      
-      FormData formData = await getFormData(_selectedImages);
-      
-      final response = await dio.post(
-        '${Constants.apiUrl}/deals',
-        data: formData,
-      );
-      
-      if (response.statusCode == 201) {
-        if (mounted) {
+      List<String>? imageUrls;
+      String progressMessage = 'Creating deal...';
+
+      if (_selectedImages.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Uploading images...')),
+        );
+
+        // Upload images one by one with better error handling
+        imageUrls = [];
+        for (int i = 0; i < _selectedImages.length; i++) {
+          try {
+            final imageUrl = await FirebaseStorageService.uploadImage(
+              path: 'deals',
+              fileName:
+                  'deal_${DateTime.now().millisecondsSinceEpoch}_$i.${_selectedImages[i].path.split('.').last}',
+              imageFile: _selectedImages[i],
+            );
+
+            if (imageUrl != null) {
+              imageUrls.add(imageUrl);
+              print('Successfully uploaded image $i: $imageUrl');
+            } else {
+              print('Failed to upload image $i: returned null');
+            }
+          } catch (e) {
+            print('Error uploading image $i: $e');
+          }
+        }
+
+        if (imageUrls.isNotEmpty) {
+          progressMessage = 'Deal created with ${imageUrls.length} images';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Deal created successfully')),
+            SnackBar(
+                content: Text(
+                    'Uploaded ${imageUrls.length}/${_selectedImages.length} images successfully')),
+          );
+        } else {
+          progressMessage = 'Deal created (image uploads failed)';
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Deal created but image uploads failed')),
           );
         }
-      } else {
-        throw Exception('Failed to create deal: ${response.statusCode}');
+      }
+
+      print('Creating deal with image URLs: $imageUrls');
+
+      // Create deal with uploaded image URLs
+      await _createDealInFirestore(imageUrls);
+
+      Navigator.of(context).pop(); // Close dialog
+
+      // Show final success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(progressMessage)),
+      );
+
+      // Clear selected images
+      setState(() {
+        _selectedImages.clear();
+      });
+    } catch (e) {
+      print('Error in _createDealWithUploadedImages: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating deal: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _createDealInFirestore(List<String>? imageUrls) async {
+    try {
+      // Update deal creation to use Firestore with image URLs
+      final deal = Deal(
+        id: Deal.generateId(),
+        title: widget.titleController.text,
+        description: widget.descriptionController.text,
+        mrp: double.parse(widget.mrpController.text),
+        dealPrice: double.parse(widget.dealPriceController.text),
+        minParticipants: int.parse(widget.minParticipantsController.text),
+        currentParticipants: 0,
+        status: widget.statusController.text,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        imageUrls: imageUrls,
+      );
+
+      // Create deal in Firestore
+      final adminPanelState =
+          context.findAncestorStateOfType<_AdminPanelState>();
+      if (adminPanelState != null) {
+        // Call the parent's create deal method which uses Firestore
+        await adminPanelState._createDeal(imageUrls: imageUrls);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Deal created successfully with images')),
+        );
       }
     } catch (e) {
       if (mounted) {

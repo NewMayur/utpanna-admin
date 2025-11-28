@@ -1,66 +1,99 @@
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/constants.dart';
 
 class AuthService {
-  static const String _baseUrl = Constants.apiUrl;
-  static const String _tokenKey = 'auth_token';
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  static const String _userKey = 'auth_user';
 
-  Future<String> login(String username, String password) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/auth/admin/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'username': username, 'password': password}),
-    );
+  /// Sign in with email and password using Firebase Auth
+  Future<UserCredential> signIn(String email, String password) async {
+    try {
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
-    if (response.statusCode == 200) {
-      final token = json.decode(response.body)['token'];
-      Constants.updateJwtToken(token);
-      await _saveToken(token);
-      return token;
-    } else {
-      throw Exception('Failed to login');
+      // Save user info to SharedPreferences
+      await _saveUserData(userCredential);
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        throw Exception('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        throw Exception('Wrong password provided.');
+      } else {
+        throw Exception(e.message ?? 'Authentication failed.');
+      }
     }
   }
 
-  Future<void> register(String username, String email, String password) async {
-  final response = await http.post(
-    Uri.parse('$_baseUrl/auth/admin/register'),
-    headers: {'Content-Type': 'application/json'},
-    body: json.encode({
-      'username': username,
-      'email': email,
-      'password': password
-    }),
-  );
-
-  if (response.statusCode != 201) {
-    throw Exception('Failed to register');
-  }
-}
-
+  /// Sign out from Firebase Auth
   Future<void> logout() async {
-    await _deleteToken();
+    await _auth.signOut();
+    await _clearUserData();
   }
 
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_tokenKey);
-    if (token != null) {
-      Constants.updateJwtToken(token); // Update Constants when token is retrieved
+  /// Get current user
+  User? getCurrentUser() {
+    return _auth.currentUser;
+  }
+
+  /// Check if user is authenticated
+  bool isUserLoggedIn() {
+    return _auth.currentUser != null;
+  }
+
+  /// Auto login - attempt to restore session
+  Future<bool> autoLogin() async {
+    if (_auth.currentUser != null) {
+      return true;
     }
-    return token;
+
+    // Try to get saved user data
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_userKey);
+
+    if (userId == null) {
+      return false;
+    }
+
+    // Firebase automatically restores sessions, so we just check if current user exists
+    return _auth.currentUser != null;
   }
 
-  Future<void> _saveToken(String token) async {
+  /// Save user credentials to SharedPreferences
+  Future<void> _saveUserData(UserCredential userCredential) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
-    Constants.updateJwtToken(token);
+    await prefs.setString(_userKey, userCredential.user!.uid);
   }
 
-  Future<void> _deleteToken() async {
+  /// Clear user data from SharedPreferences
+  Future<void> _clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
   }
+
+  // ============= BACKWARD COMPATIBILITY (FOR EXISTING ADMIN PANEL) =============
+
+  /// Legacy method for backward compatibility
+  Future<String> login(String email, String password) async {
+    final userCredential = await signIn(email, password);
+    final idToken = await userCredential.user!.getIdToken();
+    return idToken ?? '';
+  }
+
+  /// Legacy token method for backward compatibility
+  Future<String?> getToken() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      return await user.getIdToken();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ============================================================================
 }

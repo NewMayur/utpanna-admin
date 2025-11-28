@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:utpanna_admin/services/auth_service.dart';
 import 'package:utpanna_admin/screens/admin_panel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import '../utils/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -13,80 +11,60 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  bool _isLogin = true;
+  bool _isLoading = false;
 
   Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
     try {
-      final response = await http.post(
-        Uri.parse('${Constants.apiUrl}/auth/admin/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': _usernameController.text,
-          'password': _passwordController.text
-        }),
+      final userCredential = await _authService.signIn(
+        _emailController.text.trim(),
+        _passwordController.text,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        
-        // Extract access_token from response
-        final String token = responseData['access_token'];
-        
-        // Save token to SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', token);
-        
-        // Update Constants
-        Constants.updateJwtToken(token);
-        
-        // Navigate to AdminPanel
-        if (mounted) {  // Check if widget is still mounted
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => AdminPanel(token: token),
-            ),
-          );
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login successful')),
-          );
-        }
-      } else {
+      // Save login session (1 day persistence)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setInt(
+          'last_login_time', DateTime.now().millisecondsSinceEpoch);
+
+      // Navigate to AdminPanel
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const AdminPanel(),
+          ),
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${response.statusCode}')),
+          const SnackBar(content: Text('Login successful')),
         );
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'Login failed';
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided.';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email format.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error during login: $e')),
+        SnackBar(content: Text('Login error: ${e.toString()}')),
       );
-    }
-  }
-
-  void _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        if (_isLogin) {
-          await _login();
-        } else {
-          await _authService.register(
-            _usernameController.text,
-            _emailController.text,
-            _passwordController.text,
-          );
-          setState(() => _isLogin = true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Registration successful. Please login.')),
-          );
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_isLogin ? "Login" : "Registration"} failed: ${e.toString()}')),
-        );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -94,60 +72,95 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Register')),
+      appBar: AppBar(title: Text('Admin Login')),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text(
+                'Utpanna Admin Portal',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
               TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(labelText: 'Username'),
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your username';
+                    return 'Please enter your email';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                      .hasMatch(value)) {
+                    return 'Please enter a valid email';
                   }
                   return null;
                 },
               ),
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(labelText: 'Email'),
-                // validator: (value) {
-                //   if (value == null || value.isEmpty) {
-                //     return 'Please enter an email';
-                //   }
-                //   return null;
-                // },
-              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock),
+                  border: OutlineInputBorder(),
+                ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
                   }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
                   return null;
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _submitForm,
-                child: Text(_isLogin ? 'Login' : 'Register'),
+                onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Login',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-              TextButton(
-                onPressed: () {
-                  setState(() => _isLogin = !_isLogin);
-                },
-                child: Text(_isLogin ? 'Need to register?' : 'Already have an account?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Enter your admin credentials to access the panel',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }
 

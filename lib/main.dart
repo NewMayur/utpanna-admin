@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:utpanna_admin/screens/login_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:utpanna_admin/screens/admin_panel.dart';
+import 'package:utpanna_admin/utils/firebase_config.dart';
+import 'package:utpanna_admin/utils/app_theme.dart';
+import 'package:utpanna_admin/services/auth_service.dart';
 
-//dev
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: FirebaseOptions(
-      apiKey: "AIzaSyDiVSLs3goLrzmndUyLa9Sjp0gs4ovHHhA",
-      authDomain: "utpanna-dev.firebaseapp.com",
-      projectId: "utpanna-dev",
-      storageBucket: "utpanna-dev.appspot.com",
-      messagingSenderId: "340480522275",
-      appId: "1:340480522275:web:31b799d4bd82e6398ad996"
-    ),
-  );
+
+  // Initialize Firebase with environment-based configuration
+  await FirebaseConfig.initialize();
+
   runApp(MyApp());
 }
 
@@ -40,11 +38,56 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Utpanna Admin Panel',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: FutureBuilder<Widget>(
+        future: _getInitialScreen(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          return snapshot.data ?? LoginScreen();
+        },
       ),
-      home: LoginScreen(),
     );
+  }
+
+  Future<Widget> _getInitialScreen() async {
+    try {
+      // Check if user is logged in and session is valid
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      final lastLoginTime = prefs.getInt('last_login_time') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+
+      // Session valid for 24 hours (86400000 milliseconds)
+      const sessionDuration = 86400000; // 1 day in milliseconds
+
+      final isSessionValid =
+          isLoggedIn && (currentTime - lastLoginTime) < sessionDuration;
+
+      if (isSessionValid) {
+        // Verify Firebase user is still authenticated
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          return AdminPanel();
+        }
+      }
+
+      // Clean up invalid session data
+      await prefs.setBool('is_logged_in', false);
+      await prefs.remove('last_login_time');
+
+      return LoginScreen();
+    } catch (e) {
+      // On error, default to login screen
+      return LoginScreen();
+    }
   }
 }
 
